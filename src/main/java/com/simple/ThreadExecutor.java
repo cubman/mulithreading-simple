@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 public class ThreadExecutor {
     private static final int MAX_THREAD_COUNT = 5;
@@ -30,7 +29,6 @@ public class ThreadExecutor {
 
         } catch (Exception e) {
             e.printStackTrace();
-            throw new Error(e);
         }
 
         return result;
@@ -75,7 +73,6 @@ public class ThreadExecutor {
     List<Integer> primes() {
         int i = 0;
         int num = 0;
-        String primeNumbers = "";
 
         List<Integer> list = new ArrayList<>();
 
