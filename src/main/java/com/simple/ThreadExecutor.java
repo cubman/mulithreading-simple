@@ -52,7 +52,7 @@ public class ThreadExecutor {
         return futures;
     }
 
-    private class Executor implements Callable<List<Integer>> {
+    private static class Executor implements Callable<List<Integer>> {
         int from, to;
 
         public Executor(int from, int to) {
@@ -96,14 +96,14 @@ public class ThreadExecutor {
         return list;
     }
 
-    public static void main(String[] args) {
-
-        ThreadExecutor threadExecutor = new ThreadExecutor(1000);
+    public static void main(String[] args) throws Exception {
+        int maxValue = 5000;
+        ThreadExecutor threadExecutor = new ThreadExecutor(maxValue);
         Date start = new Date();
         List<Integer> cleverPrimes = threadExecutor.run();
         System.out.println("Время работы: " + (System.currentTimeMillis() - start.getTime()) + " мск");
         start = new Date();
-        List<Integer> silyPrimes = threadExecutor.primes();
+        List<Integer> silyPrimes = new Executor(2, maxValue).call(); // не многопоточный вариант
         System.out.println("Время работы: " + (System.currentTimeMillis() - start.getTime()) + " мск");
 
         if (cleverPrimes.size() != silyPrimes.size()) {
