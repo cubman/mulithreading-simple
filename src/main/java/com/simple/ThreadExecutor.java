@@ -1,17 +1,30 @@
 package com.simple;
 
+import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Scanner;
 import java.util.concurrent.*;
 
 public class ThreadExecutor {
-    private static final int MAX_THREAD_COUNT = 5;
+    private static final int MAX_THREAD_COUNT = 3;
+    private static final int PORT = 8080;
 
     int maxValue;
+    ServerSocket serverSocket;
 
-    public ThreadExecutor(int maxValue) {
+    public ThreadExecutor(int maxValue) throws IOException {
         this.maxValue = maxValue;
+
+        serverSocket = new ServerSocket(PORT);
+
+
+        if (serverSocket == null) {
+            throw new NullPointerException("serverSocket is null");
+        }
     }
 
     List<Integer> run() {
@@ -34,15 +47,17 @@ public class ThreadExecutor {
         return result;
     }
 
-    private List<Future<List<Integer>>> cleverDivide(int maxValue) {
-        int threadCount = maxValue / 30 == 0 ? 1 : Math.min(MAX_THREAD_COUNT, maxValue / 30);
+    private List<Future<List<Integer>>> cleverDivide(int maxValue) throws IOException {
+        int threadCount = MAX_THREAD_COUNT; // maxValue / 30 == 0 ? 1 : Math.min(MAX_THREAD_COUNT, maxValue / 30);
         ExecutorService service = Executors.newFixedThreadPool(threadCount);
 
         List<Future<List<Integer>>> futures = new ArrayList<>();
         int div = maxValue / threadCount;
 
-        for (int i = 0; i <= threadCount; ++i) {
-            futures.add(service.submit(new Executor(Math.max(2, div * i + 1), Math.min(maxValue, div * (i + 1)))));
+        for (int i = 0; i < threadCount; ++i) {
+            futures.add(service.submit(new Executor(serverSocket.accept(), Math.max(2, div * i + 1),
+                    i == threadCount - 1 ? maxValue : Math.min(maxValue, div * (i + 1)))));
+
         }
 
         service.shutdown();
@@ -52,20 +67,44 @@ public class ThreadExecutor {
 
     private static class Executor implements Callable<List<Integer>> {
         int from, to;
+        Socket socket;
 
-        public Executor(int from, int to) {
+        public Executor(Socket socket, int from, int to) {
+            this.socket = socket;
             this.from = from;
             this.to = to;
         }
 
-        public List<Integer> call() throws Exception {
+        public List<Integer> call() {
+            String resList = null;
+            try (
+                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    BufferedWriter out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+            ) {
+
+                String text = String.format("f:%d:t:%d\r\n", from, to);
+
+                out.write(text);
+                out.flush(); // выталкиваем все из буфера
+                resList = in.readLine();
+                System.out.println("В промежутке " + text + "получено" + resList);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            return fromStringToList(resList);
+        }
+
+
+        private List<Integer> fromStringToList(String listString) {
             List<Integer> result = new ArrayList<>();
 
-            for (int i = from; i < to; ++i) {
-                if (Operation.ferma(i)) {
-                    result.add(i);
-                }
+            String[] split = listString.substring(1, listString.length() - 1).split(", ");
+            for (String s : split) {
+                result.add(Integer.valueOf(s));
             }
+
             return result;
         }
     }
@@ -100,7 +139,7 @@ public class ThreadExecutor {
         List<Integer> cleverPrimes = threadExecutor.run();
         System.out.println("Время работы: " + (System.currentTimeMillis() - start.getTime()) + " мск");
         start = new Date();
-        List<Integer> silyPrimes = new Executor(2, maxValue).call(); // не многопоточный вариант
+        List<Integer> silyPrimes = threadExecutor.primes(); // не многопоточный вариант
         System.out.println("Время работы: " + (System.currentTimeMillis() - start.getTime()) + " мск");
 
         if (cleverPrimes.size() != silyPrimes.size()) {
